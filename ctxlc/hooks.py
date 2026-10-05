@@ -224,7 +224,7 @@ def on_user_prompt_submit(store, cfg, d):
     except OSError:
         shown = None
     if shown and time.time() - shown < cfg["guard_override_window_s"]:
-        os.remove(marker)
+        # Keep the marker: a second copy of this hook (e.g. a stale plugin) runs for the same submit and must pass too.
         store.metric("idle_guard_override", session=d.get("session_id"), idle_s=int(idle), ctx=info["ctx"])
         return
     store.ensure()

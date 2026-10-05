@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5 — 2026-10-05
+
+- Idle warning no longer blocks every resend when ctxlc's hook runs twice for one message (for example an older
+  plugin copy alongside the installed hooks): the first resend within 15 minutes now goes through for every copy.
+
 ## 0.1.4 — 2026-10-05
 
 - Windows support. File locking uses `msvcrt` where `fcntl` is missing; hook commands use forward-slash paths and

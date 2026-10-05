@@ -802,6 +802,7 @@ class TestHooks(Base):
         self.assertIn("250k", out["reason"])
         self.assertIn("new session", out["reason"])  # keeps the old chat visible, unlike /clear
         self.assertIsNone(self.run_hook(self.base("UserPromptSubmit", prompt="continue")))
+        self.assertIsNone(self.run_hook(self.base("UserPromptSubmit", prompt="continue")))  # duplicate hook copy
 
     def test_idle_guard_quiet_when_warm_or_small(self):
         self.write(rec_asst([{"type": "text", "text": "done"}], time.time() - 60, ctx=250000))

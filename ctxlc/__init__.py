@@ -11,4 +11,4 @@ Layers:
   L3  recoverable history          (.claude/context/history.jsonl + artifacts/, searched on demand)
 """
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
