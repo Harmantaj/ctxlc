@@ -21,8 +21,10 @@ from . import tokens
 
 try:
     import fcntl
-except ImportError:  # Windows: unsupported; hooks log the error below and change nothing
+    msvcrt = None
+except ImportError:  # Windows
     fcntl = None
+    import msvcrt
 
 STATE_VERSION = 1
 
@@ -169,6 +171,17 @@ def empty_state(project):
     }
 
 
+def _replace(src, dst):
+    """os.replace, retried on Windows, where it fails while another process (a hook reading state) has dst open."""
+    for attempt in range(50):
+        try:
+            return os.replace(src, dst)
+        except PermissionError:
+            if fcntl or attempt == 49:
+                raise
+            time.sleep(0.02)
+
+
 class Store:
     def __init__(self, project=None):
         self.project = project or project_dir()
@@ -183,29 +196,40 @@ class Store:
         for d in (self.dir, self.artifacts, self.epochs):
             os.makedirs(d, mode=0o700, exist_ok=True)
         # Archived outputs and history can hold secrets the session printed: owner-only.
-        if os.stat(self.dir).st_mode & 0o077:
+        if fcntl and os.stat(self.dir).st_mode & 0o077:  # Windows has no POSIX modes; the profile folder is private
             os.chmod(self.dir, 0o700)
         gi = os.path.join(self.dir, ".gitignore")
         if not os.path.exists(gi):
-            with open(gi, "w") as f:
+            with open(gi, "w", encoding="utf-8") as f:
                 f.write("*\n")
 
     # --- locking -------------------------------------------------------------
     @contextlib.contextmanager
     def locked(self):
-        if fcntl is None:
-            raise RuntimeError("ctxlc needs macOS or Linux (file locking uses fcntl)")
         self.ensure()
-        with open(os.path.join(self.dir, ".lock"), "w") as lf:
-            fcntl.flock(lf, fcntl.LOCK_EX)
+        with open(os.path.join(self.dir, ".lock"), "a+", encoding="utf-8") as lf:
+            if fcntl:
+                fcntl.flock(lf, fcntl.LOCK_EX)
+            else:
+                lf.seek(0)
+                while True:
+                    try:
+                        msvcrt.locking(lf.fileno(), msvcrt.LK_LOCK, 1)
+                        break
+                    except OSError:  # LK_LOCK gives up after ~10 s; keep waiting, as flock does
+                        pass
             try:
                 yield
             finally:
-                fcntl.flock(lf, fcntl.LOCK_UN)
+                if fcntl:
+                    fcntl.flock(lf, fcntl.LOCK_UN)
+                else:
+                    lf.seek(0)
+                    msvcrt.locking(lf.fileno(), msvcrt.LK_UNLCK, 1)
 
     def load(self):
         try:
-            with open(self.state_path) as f:
+            with open(self.state_path, encoding="utf-8") as f:
                 st = json.load(f)
             if st.get("version") == STATE_VERSION:
                 return st
@@ -215,9 +239,9 @@ class Store:
 
     def save(self, st):
         tmp = self.state_path + ".tmp"
-        with open(tmp, "w") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(st, f, indent=1)
-        os.replace(tmp, self.state_path)
+        _replace(tmp, self.state_path)
 
     @contextlib.contextmanager
     def transaction(self):
@@ -229,7 +253,7 @@ class Store:
     # --- append-only logs -------------------------------------------------------
     def append(self, path, rec):
         self.ensure()
-        with open(path, "a") as f:
+        with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     def history(self, rec):
@@ -241,7 +265,7 @@ class Store:
 
     def iter_jsonl(self, path):
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 for line in f:
                     try:
                         yield json.loads(line)
@@ -257,14 +281,14 @@ class Store:
 
     def load_epoch(self, key):
         try:
-            with open(self.epoch_path(key)) as f:
+            with open(self.epoch_path(key), encoding="utf-8") as f:
                 return json.load(f)
         except (OSError, ValueError):
             return {"outputs": {}, "reads": {}, "started": now()}
 
     def save_epoch(self, key, ep):
         self.ensure()
-        with open(self.epoch_path(key), "w") as f:
+        with open(self.epoch_path(key), "w", encoding="utf-8") as f:
             json.dump(ep, f)
 
     def reset_epoch(self, key):
@@ -308,7 +332,7 @@ class Store:
                 tmp = self.history_path + ".tmp"
                 with open(tmp, "wb") as f:
                     f.write(keep)
-                os.replace(tmp, self.history_path)
+                _replace(tmp, self.history_path)
                 dropped = size - len(keep)
         return removed, dropped
 

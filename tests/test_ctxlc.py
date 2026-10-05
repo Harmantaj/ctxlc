@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import time
+import types
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -585,20 +586,22 @@ class TestHooks(Base):
         finally:
             sys.stdout, sys.stdin = real_out, real_in
 
-    def test_hooks_are_silent_no_ops_without_fcntl(self):
+    def test_windows_lock_path_without_fcntl(self):
+        # Where fcntl is missing (Windows), locking goes through msvcrt; stand in for it to check the calls.
         from ctxlc import store as store_mod
-        real = store_mod.fcntl
-        store_mod.fcntl = None
-        out = io.StringIO()
-        real_out, sys.stdout = sys.stdout, out
+        calls = []
+        fake = types.SimpleNamespace(LK_LOCK=1, LK_UNLCK=0, locking=lambda fd, mode, n: calls.append((mode, n)))
+        real = store_mod.fcntl, store_mod.msvcrt
+        store_mod.fcntl, store_mod.msvcrt = None, fake
         try:
-            self.assertEqual(hooks.main(io.StringIO(json.dumps(self.base("SessionStart", source="startup")))), 0)
+            ctx = self.run_hook(self.base("SessionStart", source="startup"))["hookSpecificOutput"]["additionalContext"]
         finally:
-            sys.stdout = real_out
-            store_mod.fcntl = real
-        self.assertEqual(out.getvalue(), "")
-        with open(os.path.join(self.store.dir, "errors.log")) as f:
-            self.assertIn("needs macOS or Linux", f.read())
+            store_mod.fcntl, store_mod.msvcrt = real
+        self.assertIn("Context protocol", ctx)
+        self.assertTrue(calls)
+        self.assertEqual(calls[::2], [(1, 1)] * (len(calls) // 2))
+        self.assertEqual(calls[1::2], [(0, 1)] * (len(calls) // 2))
+        self.assertFalse(os.path.exists(os.path.join(self.store.dir, "errors.log")))
 
     def test_cowork_sync_runs_only_in_a_cloud_task_and_can_be_turned_off(self):
         self.write(rec_user("the report must be a pdf, never a docx.", time.time() - 50))
@@ -910,14 +913,19 @@ class TestHistory(Base):
     def setUp(self):
         super().setUp()
         self.home = tempfile.TemporaryDirectory()
-        self.real_home = os.environ.get("HOME")
-        os.environ["HOME"] = self.home.name
+        # expanduser reads HOME on macOS/Linux and USERPROFILE on Windows.
+        self.real_home = {k: os.environ.get(k) for k in ("HOME", "USERPROFILE")}
+        os.environ["HOME"] = os.environ["USERPROFILE"] = self.home.name
         slug = "".join(c if c.isalnum() else "-" for c in os.path.abspath(self.proj))
         self.tdir = os.path.join(self.home.name, ".claude", "projects", slug)
         os.makedirs(self.tdir)
 
     def tearDown(self):
-        os.environ["HOME"] = self.real_home
+        for k, v in self.real_home.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
         self.home.cleanup()
         super().tearDown()
 

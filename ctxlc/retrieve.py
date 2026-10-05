@@ -36,7 +36,7 @@ def corpus(store, st):
     for name in names:
         path = os.path.join(store.artifacts, name)
         try:
-            with open(path, errors="replace") as f:
+            with open(path, errors="replace", encoding="utf-8") as f:
                 text = f.read(200_000)
         except OSError:
             continue
@@ -89,7 +89,7 @@ def show(store, st, ref, grep=None, lines=None, max_chars=12000):
     elif ref.startswith("a:"):
         path = os.path.join(store.artifacts, ref[2:] + ".log")
         if os.path.exists(path):
-            with open(path, errors="replace") as f:
+            with open(path, errors="replace", encoding="utf-8") as f:
                 text = f.read()
     else:
         for it in st["items"]:

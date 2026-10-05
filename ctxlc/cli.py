@@ -13,7 +13,7 @@ from .store import KIND_PREFIX, Store, add_item, fmt_ts, render_digest, set_stat
 CTX_PATH = config.CTX_PATH
 # A checkout's bin/ctx is run with python3 (it may lack the executable bit); an installed console script carries
 # its own interpreter in its shebang, and running it with the system python3 could not import ctxlc.
-HOOK_CMD = ('python3 "' if config.FROM_CHECKOUT else '"') + CTX_PATH + '" hook'
+HOOK_CMD = (config.PYTHON_CMD + ' "' if config.FROM_CHECKOUT else '"') + CTX_PATH + '" hook'
 SKILL_DIR = os.path.expanduser("~/.claude/skills/ctx")
 # The in-app status line / band / pane. Claude Code auto-loads a plugin folder under ~/.claude/skills/.
 MOD_DIR = os.path.expanduser("~/.claude/skills/ctxlc-bar")
@@ -200,7 +200,7 @@ def _read_settings(path):
     """Existing settings, {} if absent. A file that exists but is not valid JSON is an error:
     overwriting it would silently drop the user's other settings."""
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             text = f.read()
     except FileNotFoundError:
         return {}
@@ -215,7 +215,7 @@ def _write_settings(path, s):
     if os.path.exists(path):
         shutil.copy2(path, path + ".ctxlc.bak")
     tmp = path + ".tmp"
-    with open(tmp, "w") as f:
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(s, f, indent=2)
         f.write("\n")
     os.replace(tmp, path)
@@ -223,18 +223,18 @@ def _write_settings(path, s):
 
 def install_skill():
     """Write ~/.claude/skills/ctx/SKILL.md with this install's absolute ctx path."""
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "skill_template.md")) as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "skill_template.md"), encoding="utf-8") as f:
         text = f.read().replace("__CTX__", CTX_PATH)
     path = os.path.join(SKILL_DIR, "SKILL.md")
     os.makedirs(SKILL_DIR, exist_ok=True)
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             if f.read() == text:
                 return path, False
         shutil.copy2(path, path + ".ctxlc.bak")
     except FileNotFoundError:
         pass
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(text)
     return path, True
 
@@ -242,29 +242,27 @@ def install_skill():
 def install_mod(dest=None):
     """Copy ctxlc/mod to ~/.claude/skills/ctxlc-bar with the argv that runs this install's ctx."""
     dest = dest or MOD_DIR
-    argv = ["python3", CTX_PATH] if config.FROM_CHECKOUT else [CTX_PATH]
+    argv = [config.PYTHON, CTX_PATH] if config.FROM_CHECKOUT else [CTX_PATH]
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mod")
     changed = False
     for rel in MOD_FILES:
-        with open(os.path.join(src, rel)) as f:
+        with open(os.path.join(src, rel), encoding="utf-8") as f:
             text = f.read().replace("__CTX_ARGV__", json.dumps(argv))
         path = os.path.join(dest, rel)
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 if f.read() == text:
                     continue
         except FileNotFoundError:
             pass
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(text)
         changed = True
     return dest, changed
 
 
 def cmd_install(a, store):
-    if os.name == "nt":
-        sys.exit("ctxlc supports macOS and Linux only (it locks its state files with fcntl)")
     path = settings_path(a)
     s = _read_settings(path)
     before = json.loads(json.dumps(s))
@@ -358,10 +356,13 @@ def cmd_history(a, store):
         return
     out = os.path.join(store.dir, "history", c["id"] + ".html")
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    with open(out, "w") as f:
+    with open(out, "w", encoding="utf-8") as f:
         f.write(history.render(c))
     print(out)
     if a.open:
+        if config.WINDOWS:
+            os.startfile(out)
+            return
         opener = "open" if sys.platform == "darwin" else "xdg-open"
         if shutil.which(opener):
             os.spawnlp(os.P_WAIT, opener, opener, out)
@@ -369,6 +370,10 @@ def cmd_history(a, store):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    # Claude Code exchanges UTF-8 with hooks; Windows (and C-locale Linux) would otherwise use a legacy code page.
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure") and (stream.encoding or "").lower().replace("-", "") != "utf8":
+            stream.reconfigure(encoding="utf-8")
     if argv[:1] == ["hook"]:
         return hooks.main()
     p = argparse.ArgumentParser(prog="ctx", description="Claude Code context lifecycle manager")

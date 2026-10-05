@@ -14,7 +14,7 @@ from . import ingest
 
 
 def _records(path):
-    with open(path, errors="ignore") as f:
+    with open(path, errors="ignore", encoding="utf-8") as f:
         for line in f:
             try:
                 yield json.loads(line)

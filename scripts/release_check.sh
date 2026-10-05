@@ -8,6 +8,10 @@ PY="${PYTHON:-python3}"
 OUT="$ROOT/dist/release"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+# Windows (Git Bash): venv executables live in Scripts/, and native programs need C:/... paths inside strings.
+BIN=bin
+native() { printf '%s' "$1"; }
+case "${OSTYPE:-}" in msys*|cygwin*) BIN=Scripts; native() { cygpath -m "$1"; } ;; esac
 
 step() { printf '\n== %s\n' "$1"; }
 
@@ -15,27 +19,29 @@ step "build wheel and sdist"
 rm -rf "$OUT" "$ROOT/build" "$ROOT"/*.egg-info
 mkdir -p "$OUT"
 "$PY" -m venv "$WORK/buildenv"
-"$WORK/buildenv/bin/pip" -q install --upgrade pip build
-"$WORK/buildenv/bin/python" -m build --outdir "$OUT" "$ROOT" >/dev/null
+"$WORK/buildenv/$BIN/python" -m pip -q install --upgrade pip build
+"$WORK/buildenv/$BIN/python" -m build --outdir "$OUT" "$ROOT" >/dev/null
 rm -rf "$ROOT/build" "$ROOT"/*.egg-info
-VERSION="$("$PY" -c "import sys; sys.path.insert(0, '$ROOT'); import ctxlc; print(ctxlc.__version__)")"
+VERSION="$(cd "$ROOT" && "$PY" -c "import ctxlc; print(ctxlc.__version__)")"
 WHEEL="$OUT/ctxlc-$VERSION-py3-none-any.whl"
 SDIST="$OUT/ctxlc-$VERSION.tar.gz"
 ls "$WHEEL" "$SDIST"
 
 step "clean install from the wheel"
 "$PY" -m venv "$WORK/v"
-"$WORK/v/bin/pip" -q install "$WHEEL"
-CTX="$WORK/v/bin/ctx"
+"$WORK/v/$BIN/python" -m pip -q install "$WHEEL"
+CTX="$WORK/v/$BIN/ctx"
 PROJ="$WORK/proj"
 mkdir -p "$PROJ" "$WORK/home"
 (
-  export HOME="$WORK/home"
+  export HOME="$WORK/home" USERPROFILE="$(native "$WORK/home")"
   cd "$PROJ"
   "$CTX" install --project "$PROJ" >/dev/null
-  grep -q "$CTX\\\\\" hook" .claude/settings.local.json
+  CTX_IN_SETTINGS="$(native "$CTX")"
+  if [ "$BIN" = Scripts ]; then CTX_IN_SETTINGS="$CTX_IN_SETTINGS.exe"; fi
+  grep -qF "$CTX_IN_SETTINGS\\\" hook" .claude/settings.local.json
   "$CTX" note requirement "Invoice numbers use the prefix INV-2026-" >/dev/null
-  HOOK="{\"hook_event_name\":\"SessionStart\",\"source\":\"clear\",\"session_id\":\"s1\",\"cwd\":\"$PROJ\",\"transcript_path\":\"\"}"
+  HOOK="{\"hook_event_name\":\"SessionStart\",\"source\":\"clear\",\"session_id\":\"s1\",\"cwd\":\"$(native "$PROJ")\",\"transcript_path\":\"\"}"
   echo "$HOOK" | "$CTX" hook | grep -q "INV-2026-"
   test ! -e .claude/context/errors.log
   "$CTX" uninstall --project "$PROJ" >/dev/null

@@ -23,7 +23,7 @@ def write_weight(usage):
 def usage_of_transcript(path):
     """Main-thread requests in order: (tool_use_ids seen before this request, usage...)."""
     reqs, boundaries, pos_of_tool = [], [], {}
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             try:
                 o = json.loads(line)

@@ -201,7 +201,7 @@ def archive(store, text, label):
     h = digest(text)
     path = os.path.join(store.artifacts, f"{h}.log")
     if not os.path.exists(path):
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(f"# {label}\n# archived {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(text)
     else:
@@ -221,7 +221,7 @@ def compact_bash(store, cfg, epoch, tool_input, response, call_id=None):
     if persisted:
         # Output above bashOutputMaxChars: stdout holds only the head; the full text is on disk.
         try:
-            with open(persisted, errors="replace") as f:
+            with open(persisted, errors="replace", encoding="utf-8") as f:
                 out = f.read(PERSISTED_READ_MAX)
         except OSError:
             persisted = None
@@ -302,7 +302,7 @@ def mcp_text(response):
         m = MCP_SAVED.match(response)
         if m:
             try:
-                with open(m.group(1), errors="replace") as f:
+                with open(m.group(1), errors="replace", encoding="utf-8") as f:
                     return f.read(PERSISTED_READ_MAX)
             except OSError:
                 return None

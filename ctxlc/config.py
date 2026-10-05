@@ -12,6 +12,7 @@ import sys
 _CHECKOUT_CTX = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "ctx")
 # Running from a source checkout (bin/ctx next to the package) rather than from a pip/pipx install.
 FROM_CHECKOUT = os.path.isfile(_CHECKOUT_CTX)
+WINDOWS = os.name == "nt"
 
 
 def _ctx_path():
@@ -22,11 +23,20 @@ def _ctx_path():
     is not enough."""
     if FROM_CHECKOUT:
         return _CHECKOUT_CTX
-    beside = os.path.join(os.path.dirname(sys.executable), "ctx")
+    beside = os.path.join(os.path.dirname(sys.executable), "ctx.exe" if WINDOWS else "ctx")
     return beside if os.path.isfile(beside) else (shutil.which("ctx") or beside)
 
 
-CTX_PATH = _ctx_path()
+def _shell_path(path):
+    # On Windows, Claude Code runs hook and Bash tool commands in Git Bash, where forward slashes need no escaping.
+    return path.replace("\\", "/") if WINDOWS else path
+
+
+CTX_PATH = _shell_path(_ctx_path())
+# Interpreter for a checkout's bin/ctx: python3 on macOS/Linux; Windows often has no python3 (python.org installs
+# provide python and py), so use the one running now.
+PYTHON = _shell_path(sys.executable) if WINDOWS else "python3"
+PYTHON_CMD = f'"{PYTHON}"' if WINDOWS else PYTHON
 
 DEFAULTS = {
     # --- L1 tool output -------------------------------------------------
@@ -83,7 +93,7 @@ def load(store_dir):
     cfg = dict(DEFAULTS)
     for path in (PLUGIN_CONFIG, os.path.join(store_dir, "config.json")):
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 cfg.update(json.load(f))
         except (OSError, ValueError):
             pass

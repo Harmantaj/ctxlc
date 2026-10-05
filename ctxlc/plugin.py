@@ -15,7 +15,11 @@ from . import __version__
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # CTXLC_PLUGIN marks this copy: where `ctx install` hooks run too (a local session also loads claude.ai plugins),
 # the plugin's copy stands down so state is saved and injected once.
-HOOK_CMD = 'CTXLC_PLUGIN=1 PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m ctxlc hook'
+# On Windows (hooks run in Git Bash, $OS is Windows_NT) python3 is often missing or the Microsoft Store stub; python.org
+# installs provide the py launcher.
+HOOK_CMD = ('CTXLC_PLUGIN=1 PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" '
+            '$([ "$OS" = Windows_NT ] && { command -v py >/dev/null && echo "py -3" || echo python; } || echo python3) '
+            '-m ctxlc hook')
 
 
 def manifest():

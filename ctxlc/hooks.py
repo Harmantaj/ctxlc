@@ -16,8 +16,8 @@ from .store import AGENT_PROTOCOL, COWORK_PROTOCOL, Store, _clip, by_relevance, 
 
 # The uploaded plugin ships no executable (claude.ai rejects bin/), so there the package runs as a module.
 _PKG_PARENT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CLI = ('"' + config.CTX_PATH + '"' if os.path.isfile(config.CTX_PATH)
-       else f'PYTHONPATH="{_PKG_PARENT}" python3 -m ctxlc')
+CLI = ((config.PYTHON_CMD + ' ' if config.WINDOWS and config.FROM_CHECKOUT else '') + '"' + config.CTX_PATH + '"'
+       if os.path.isfile(config.CTX_PATH) else f'PYTHONPATH="{_PKG_PARENT}" {config.PYTHON_CMD} -m ctxlc')
 
 
 def emit(obj):
@@ -228,7 +228,7 @@ def on_user_prompt_submit(store, cfg, d):
         store.metric("idle_guard_override", session=d.get("session_id"), idle_s=int(idle), ctx=info["ctx"])
         return
     store.ensure()
-    open(marker, "w").close()
+    open(marker, "w", encoding="utf-8").close()
     store.metric("idle_guard_block", session=d.get("session_id"), idle_s=int(idle), ctx=info["ctx"])
     hours = idle / 3600
     reason = (
@@ -264,7 +264,7 @@ def installed_hooks_present(cwd):
         paths += [os.path.join(cwd, ".claude", n) for n in ("settings.json", "settings.local.json")]
     for path in paths:
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 groups = json.load(f).get("hooks", {}).values()
         except (OSError, ValueError, AttributeError):
             continue
@@ -291,7 +291,7 @@ def main(stdin=None):
         try:
             s = store or Store()
             s.ensure()
-            with open(os.path.join(s.dir, "errors.log"), "a") as f:
+            with open(os.path.join(s.dir, "errors.log"), "a", encoding="utf-8") as f:
                 f.write(f"--- {time.ctime()}\n{traceback.format_exc()}\n")
         except Exception:
             pass
