@@ -53,7 +53,8 @@ with `--sync-folder`: it carries a path on the builder's computer.
 
 ## Known limits to state in the release notes
 
-* macOS and Linux only (`fcntl`); on Windows `ctx install` refuses and hooks do nothing.
+* Windows: verified in CI (Windows Server runners, Python 3.9 and 3.13), not yet in a live Claude Code session on
+  Windows; the in-app status line is untested there.
 * Python 3.9 is covered by CI only; local checks ran on 3.10 and 3.14.
 * Cowork: state carries between tasks only for tasks that work in a folder on the user's computer, and folder access
   is approved per task. Saving relies on the model following the injected instructions.

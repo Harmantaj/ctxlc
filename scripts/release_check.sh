@@ -29,6 +29,7 @@ SDIST="$OUT/ctxlc-$VERSION.tar.gz"
 ls "$WHEEL" "$SDIST"
 
 step "clean install from the wheel"
+PYTHONPATH="$ROOT" "$PY" -m ctxlc plugin --out "$WORK/plugin.zip" >/dev/null
 "$PY" -m venv "$WORK/v"
 "$WORK/v/$BIN/python" -m pip -q install "$WHEEL"
 CTX="$WORK/v/$BIN/ctx"
@@ -44,12 +45,18 @@ mkdir -p "$PROJ" "$WORK/home"
   grep -qF "$CTX_IN_SETTINGS\\\" hook" .claude/settings.local.json
   "$CTX" note requirement "Invoice numbers use the prefix INV-2026-" >/dev/null
   HOOK="{\"hook_event_name\":\"SessionStart\",\"source\":\"clear\",\"session_id\":\"s1\",\"cwd\":\"$(native "$PROJ")\",\"transcript_path\":\"\"}"
-  echo "$HOOK" | "$CTX" hook | grep -q "INV-2026-"
+  # Run the hook exactly as Claude Code does: the settings' command string through bash (Git Bash on Windows).
+  SETTINGS_CMD="$("$PY" -c "import json; print(json.load(open('.claude/settings.local.json'))['hooks']['SessionStart'][0]['hooks'][0]['command'])")"
+  echo "$HOOK" | bash -c "$SETTINGS_CMD" | grep -q "INV-2026-"
   test ! -e .claude/context/errors.log
   "$CTX" uninstall --project "$PROJ" >/dev/null
   test "$(cat .claude/settings.local.json)" = "{}"
+  # The Cowork plugin's own hook command (it also loads in local sessions, on any OS).
+  "$PY" -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$(native "$WORK/plugin.zip")" "$(native "$WORK/plugin")"
+  PLUGIN_CMD="$("$PY" -c "import json, sys; print(json.load(open(sys.argv[1]))['hooks']['SessionStart'][0]['hooks'][0]['command'])" "$(native "$WORK/plugin/hooks/hooks.json")")"
+  echo "$HOOK" | CLAUDE_PLUGIN_ROOT="$(native "$WORK/plugin")" bash -c "$PLUGIN_CMD" | grep -q "INV-2026-"
 )
-echo "install, restore and uninstall work"
+echo "install, hook run through bash, restore, uninstall and the plugin's hook command work"
 
 step "tests from the sdist"
 tar xzf "$SDIST" -C "$WORK"

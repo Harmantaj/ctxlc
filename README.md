@@ -7,13 +7,16 @@ Pure Python 3 standard library, no model calls, installed as Claude Code hooks.
 situations, and measured results, in plain language. This README is the detailed reference.
 
 ```bash
-pipx install git+https://github.com/Harmantaj/ctxlc.git   # or: pip install --user git+https://github.com/Harmantaj/ctxlc.git (Python 3.9+, macOS or Linux)
+pipx install git+https://github.com/Harmantaj/ctxlc.git   # or: pip install --user git+https://github.com/Harmantaj/ctxlc.git (Python 3.9+; macOS, Linux or Windows)
 ctx install --project /path/to/project        # writes .claude/settings.local.json (reversible: ctx uninstall …)
 ctx install --global                          # or for every project (~/.claude/settings.json)
 ```
 
-macOS and Linux only: ctxlc locks its state files with `fcntl`, so `ctx install` refuses to run on Windows. To install
-from a source checkout instead, use `pipx install /path/to/ctxlc`.
+Works on macOS, Linux and Windows. On Windows, Claude Code runs hooks in Git Bash (which it requires anyway), and
+ctxlc's hook commands are written for that; install Python 3.9+ from python.org, then pipx with
+`py -m pip install --user pipx` and `py -m pipx ensurepath`, and run the two commands above in a new terminal. To
+install from a source checkout instead, use `pipx install /path/to/ctxlc` (on Windows prefer this over running
+`bin/ctx` directly).
 
 From a source checkout, `bin/ctx` works the same without installing. Hooks and the `/ctx` skill call `ctx` by
 the absolute path of the copy that ran `install` (the checkout's `bin/ctx`, or the console script in the pipx
@@ -368,7 +371,9 @@ bypass the idle guard. All thresholds are in `ctxlc/config.py` and can be overri
   be excluded wholesale because users paste their specs too (this project's own brief arrived as a paste).
 * Grep, WebFetch and MCP tool outputs are not condensed (their `tool_response` shapes are not verified yet).
 * The in-app `clear_session` tool starts the next session as `startup`, not `clear`; state is restored either way.
-* Locking uses `fcntl`: macOS/Linux only.
+* Windows is covered by CI (unit and end-to-end tests, a clean install, and the installed hook command run through
+  Git Bash exactly as Claude Code runs it) but has not been driven inside a live Claude Code session on Windows; the
+  in-app status line there is untested.
 * The prefix of system prompt + tool definitions (16–68k per request here) is outside ctxlc's control.
 * User-reported fixes are matched by shared words between the user's sentence and the failure's error lines
   ("unicode" ↔ `test_import_unicode_names`). A vague claim ("fixed it") closes nothing; a claim naming a word that

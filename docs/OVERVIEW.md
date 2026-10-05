@@ -97,13 +97,13 @@ There is also a `ctx` chat skill (type `ctx panel`, `ctx reset`, `ctx search …
 | Cowork (desktop app and claude.ai) | Works as an uploaded plugin | Verified in real Cowork tasks: state restored at task start, large output condensed (182,893 to 432 characters). Each task starts with an empty sandbox; carrying state between tasks goes through a file in the task's project folder and costs a few thousand tokens per copy |
 | claude.ai chat and mobile | Not supported | No hooks and no file access. Closest substitute: copy `ctx digest` into a Project's instructions |
 
-Requirements: macOS or Linux, Python 3.9 or newer. Windows is not supported (ctxlc uses `fcntl` file locking).
+Requirements: macOS, Linux or Windows, with Python 3.9 or newer. On Windows, Claude Code runs hooks in Git Bash (which it requires anyway), and ctxlc is built for that.
 
 ## Install, update and remove
 
 ctxlc is not on PyPI yet; install it straight from GitHub.
 
-1. **Install the tool:** `pipx install git+https://github.com/Harmantaj/ctxlc.git` (or `pip install --user git+https://github.com/Harmantaj/ctxlc.git`). A clone also works without installing, through its `bin/ctx`.
+1. **Install the tool:** `pipx install git+https://github.com/Harmantaj/ctxlc.git`. On Windows, first install Python from python.org, then pipx with `py -m pip install --user pipx` and `py -m pipx ensurepath`, and open a new terminal. Alternatively `pip install --user git+https://github.com/Harmantaj/ctxlc.git`. A clone also works without installing, through its `bin/ctx`.
 2. **Turn it on:** `ctx install --global` for every project, or `ctx install --project /path/to/project` for one. This adds ctxlc's hooks to Claude Code's settings (backing the file up first, and refusing to touch a settings file that isn't valid JSON), installs the `ctx` skill, and installs the in-app status line and `/ctxlc` pane.
 3. **Start a new session.** Hooks load when a session starts.
 4. **For Cowork:** download `ctxlc-plugin.zip` from the [latest GitHub release](https://github.com/Harmantaj/ctxlc/releases/latest) (or build it with `ctx plugin --out ctxlc-plugin.zip`) and upload it in Claude under **Customize → Plugins**. A rebuilt plugin must carry a higher version number, or Cowork keeps the old copy. The plugin can also load in your local Claude Code sessions; since 0.1.3 it stands down there when the global install is present, so nothing runs twice.
@@ -182,4 +182,4 @@ Everything stays on your machine, in the project's `.claude/context/` folder. No
 - **Not all output is trimmed.** Grep, web fetches and most MCP tool output pass through unchanged; images and screenshots are deliberately left alone.
 - **The fixed prefix is out of reach.** Claude Code's system prompt and tool definitions (16k–68k tokens per request) are outside ctxlc's control.
 - **Cowork between tasks depends on the model.** Copying state to the project folder goes through Claude and costs tokens; folder access must be approved per task.
-- **macOS and Linux only.**
+- **Windows is newer.** It passes the full test suite and a clean install on Windows in CI, but hasn't yet been used day to day in a live Claude Code session on Windows; the in-app status line is untested there.

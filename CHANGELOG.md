@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.4 — 2026-10-05
+
+- Windows support. File locking uses `msvcrt` where `fcntl` is missing; hook commands use forward-slash paths and
+  the real Python interpreter (Claude Code runs hooks in Git Bash on Windows, where `python3` is often absent); all
+  files and hook input/output are read and written as UTF-8 regardless of the system code page; state-file
+  replacement retries while another hook has the file open; `ctx install`/`uninstall` recognize `Scripts\ctx.exe`
+  hooks; Cowork sync paths use `/` and Cowork's session folder is recognized with `\` separators; the Cowork plugin
+  picks `py -3` or `python` on Windows.
+- `ctx install` writes Claude settings with LF line endings on every OS.
+- CI runs on Windows, macOS and Linux; the release check now runs the installed hook command and the plugin's hook
+  command through bash, as Claude Code does.
+
 ## 0.1.3 — 2026-10-05
 
 - Coming back after a break no longer means `/clear`: the idle warning now suggests a new session in the same
