@@ -1,0 +1,378 @@
+{
+ "tool-r1": {
+  "baseline": {
+   "arm": "baseline",
+   "usage": {
+    "requests": 16,
+    "input": 140,
+    "cache_write": 82139,
+    "cache_read": 1000206,
+    "output": 2704,
+    "ite": 277959,
+    "final_ctx": 103975,
+    "compactions": 0,
+    "n_total": 16
+   },
+   "correct": "13/13",
+   "path": "scratch/live2/tool-r1-base"
+  },
+  "ctxlc": {
+   "arm": "ctxlc",
+   "usage": {
+    "requests": 13,
+    "input": 116,
+    "cache_write": 33449,
+    "cache_read": 531025,
+    "output": 2542,
+    "ite": 132826,
+    "final_ctx": 55285,
+    "compactions": 0,
+    "n_total": 13
+   },
+   "correct": "13/13",
+   "path": "scratch/live2/tool-r1-ctxlc"
+  },
+  "_secs": 155
+ },
+ "tool-r2": {
+  "baseline": {
+   "arm": "baseline",
+   "usage": {
+    "requests": 18,
+    "input": 156,
+    "cache_write": 59634,
+    "cache_read": 880956,
+    "output": 3224,
+    "ite": 223640,
+    "final_ctx": 81470,
+    "compactions": 0,
+    "n_total": 18
+   },
+   "correct": "13/13",
+   "path": "scratch/live2/tool-r2-base"
+  },
+  "ctxlc": {
+   "arm": "ctxlc",
+   "usage": {
+    "requests": 12,
+    "input": 108,
+    "cache_write": 32007,
+    "cache_read": 477810,
+    "output": 2897,
+    "ite": 126388,
+    "final_ctx": 53843,
+    "compactions": 0,
+    "n_total": 12
+   },
+   "correct": "13/13",
+   "path": "scratch/live2/tool-r2-ctxlc"
+  },
+  "_secs": 160
+ },
+ "tool-r3": {
+  "baseline": {
+   "arm": "baseline",
+   "usage": {
+    "requests": 16,
+    "input": 140,
+    "cache_write": 58811,
+    "cache_read": 769428,
+    "output": 3120,
+    "ite": 210305,
+    "final_ctx": 80647,
+    "compactions": 0,
+    "n_total": 16
+   },
+   "correct": "13/13",
+   "path": "scratch/live2/tool-r3-base"
+  },
+  "ctxlc": {
+   "arm": "ctxlc",
+   "usage": {
+    "requests": 12,
+    "input": 108,
+    "cache_write": 31299,
+    "cache_read": 470588,
+    "output": 2011,
+    "ite": 119820,
+    "final_ctx": 53135,
+    "compactions": 0,
+    "n_total": 12
+   },
+   "correct": "13/13",
+   "path": "scratch/live2/tool-r3-ctxlc"
+  },
+  "_secs": 153
+ },
+ "cont-S": {
+  "baseline": {
+   "work": {
+    "requests": 11,
+    "input": 98,
+    "cache_write": 23334,
+    "cache_read": 399113,
+    "output": 2542,
+    "ite": 99387,
+    "final_ctx": 45170,
+    "compactions": 0,
+    "n_total": 11
+   },
+   "quiz": {
+    "requests": 1,
+    "input": 10,
+    "cache_write": 535,
+    "cache_read": 45162,
+    "output": 420,
+    "ite": 7696,
+    "final_ctx": 45707,
+    "compactions": 0,
+    "n_total": 12
+   },
+   "retention": "6/6",
+   "answer": "1) CLI name must be `ledgr`\n2) All amounts stored as integer cents, never floats\n3) Now using DuckDB; previously SQLite\n4) `test_split_bill_rounding` \u2014 split_bill(100, 3) returns [33, 33, 33] (sum=99) instead of distributing the remainder to sum to 100\n5) Implement CSV export with `ledgr export --csv`\n6) Must run fully offline with no network access",
+   "path": "scratch/live2/cont-S-baseline",
+   "quiz_prefix_tokens": 45707
+  },
+  "ctxlc": {
+   "work": {
+    "requests": 13,
+    "input": 114,
+    "cache_write": 18872,
+    "cache_read": 459224,
+    "output": 2613,
+    "ite": 96845,
+    "final_ctx": 40708,
+    "compactions": 0,
+    "n_total": 13
+   },
+   "quiz": {
+    "requests": 1,
+    "input": 10,
+    "cache_write": 7973,
+    "cache_read": 25854,
+    "output": 789,
+    "ite": 22486,
+    "final_ctx": 33837,
+    "compactions": 0,
+    "n_total": 1
+   },
+   "retention": "6/6",
+   "answer": "Based on the project context:\n\n1. **CLI name**: `ledgr`\n2. **Money amounts**: Always stored as integer cents, never floats\n3. **Storage engine**: Currently switching to DuckDB (previously SQLite, before [D2])\n4. **Failing rounding test**: `test_split_bill_rounding` \u2014 `split_bill(100, 3)` returned `[33, 33, 33]` but lost 1 cent (should sum to 100)\n5. **Current task**: Implement CSV export (`ledgr export --csv`) \u2014 outline the implementation in 4 bullets, don't write code yet\n6. **Network constraint**: Must run fully offline, no network access allowed\n\nReady to proceed with the task. Should I read design_5.md and outline the export implementation?",
+   "path": "scratch/live2/cont-S-ctxlc",
+   "quiz_prefix_tokens": 33837
+  },
+  "_secs": 166
+ },
+ "cont-M": {
+  "baseline": {
+   "work": {
+    "requests": 14,
+    "input": 122,
+    "cache_write": 71216,
+    "cache_read": 711936,
+    "output": 3292,
+    "ite": 230208,
+    "final_ctx": 71224,
+    "compactions": 0,
+    "n_total": 14
+   },
+   "quiz": {
+    "requests": 1,
+    "input": 10,
+    "cache_write": 761,
+    "cache_read": 71216,
+    "output": 372,
+    "ite": 10514,
+    "final_ctx": 71987,
+    "compactions": 0,
+    "n_total": 15
+   },
+   "retention": "6/6",
+   "answer": "1) CLI name: `ledgr`\n\n2) Money amounts must be stored as integer cents, never floats.\n\n3) Storage engine: DuckDB now (switched from SQLite for better analytics query support).\n\n4) Failing test: `test_split.py::test_split_bill_rounding` \u2014 splits 100 cents among 3 people as `[33, 33, 33]`, losing 1 cent instead of distributing the remainder.\n\n5) Current task: Implement CSV export via `ledgr export --csv` command.\n\n6) Network constraint: Must run fully offline with zero network access.",
+   "path": "scratch/live2/cont-M-baseline",
+   "quiz_prefix_tokens": 71987
+  },
+  "ctxlc": {
+   "work": {
+    "requests": 10,
+    "input": 90,
+    "cache_write": 46125,
+    "cache_read": 490363,
+    "output": 4684,
+    "ite": 164796,
+    "final_ctx": 67961,
+    "compactions": 0,
+    "n_total": 10
+   },
+   "quiz": {
+    "requests": 1,
+    "input": 10,
+    "cache_write": 8363,
+    "cache_read": 25854,
+    "output": 853,
+    "ite": 23586,
+    "final_ctx": 34227,
+    "compactions": 0,
+    "n_total": 1
+   },
+   "retention": "6/6",
+   "answer": "1) **CLI name:** `ledgr`\n2) **Money storage:** Always integer cents, never floats\n3) **Storage engines:** Currently switching to DuckDB; previously used SQLite\n4) **Failing money test:** `tests/test_split.py::test_split_bill_rounding` \u2014 `split_bill(100, 3)` returns `[33, 33, 33]` (sum 99, lost 1 cent)\n5) **Current task:** Implement CSV export (`ledgr export --csv`)\n6) **Network constraint:** Must run fully offline, no network access",
+   "path": "scratch/live2/cont-M-ctxlc",
+   "quiz_prefix_tokens": 34227
+  },
+  "_secs": 263
+ },
+ "cont-L": {
+  "baseline": {
+   "work": {
+    "requests": 12,
+    "input": 106,
+    "cache_write": 101155,
+    "cache_read": 940324,
+    "output": 3093,
+    "ite": 311913,
+    "final_ctx": 122991,
+    "compactions": 0,
+    "n_total": 12
+   },
+   "quiz": {
+    "requests": 1,
+    "input": 10,
+    "cache_write": 539,
+    "cache_read": 122983,
+    "output": 402,
+    "ite": 15396,
+    "final_ctx": 123532,
+    "compactions": 0,
+    "n_total": 13
+   },
+   "retention": "6/6",
+   "answer": "1) `ledgr`\n2) Integer cents only, never floats\n3) DuckDB now (switched from SQLite for analytics queries)\n4) `test_split_bill_rounding` \u2014 `split_bill(100, 3)` returns `[33, 33, 33]` (sum=99) instead of `[34, 33, 33]` (sum=100); losing 1 cent to rounding\n5) Implement CSV export (`ledgr export --csv`)\n6) Must run fully offline with no network access",
+   "path": "scratch/live2/cont-L-baseline",
+   "quiz_prefix_tokens": 123532
+  },
+  "ctxlc": {
+   "work": {
+    "requests": 10,
+    "input": 90,
+    "cache_write": 95605,
+    "cache_read": 720772,
+    "output": 2383,
+    "ite": 275292,
+    "final_ctx": 117441,
+    "compactions": 0,
+    "n_total": 10
+   },
+   "quiz": {
+    "requests": 1,
+    "input": 10,
+    "cache_write": 7209,
+    "cache_read": 25854,
+    "output": 480,
+    "ite": 19413,
+    "final_ctx": 33073,
+    "compactions": 0,
+    "n_total": 1
+   },
+   "retention": "6/6",
+   "answer": "1. **CLI name**: ledgr\n2. **Money storage**: integer cents (never floats)\n3. **Storage engine**: now using DuckDB; previously SQLite\n4. **Failing rounding test**: `test_split_bill_rounding` \u2014 `split_bill(100, 3)` returned `[33, 33, 33]` but should sum to 100 (lost 1 cent)\n5. **Current task**: implement CSV export (`ledgr export --csv`), then outline the implementation in 4 bullets without writing code\n6. **Network constraint**: must run fully offline, no network access\n\nReady to read design_5.md and outline the export implementation.",
+   "path": "scratch/live2/cont-L-ctxlc",
+   "quiz_prefix_tokens": 33073
+  },
+  "_secs": 167
+ },
+ "switch-M": {
+  "baseline": {
+   "work": {
+    "requests": 11,
+    "input": 98,
+    "cache_write": 46867,
+    "cache_read": 526484,
+    "output": 2884,
+    "ite": 160900,
+    "final_ctx": 68703,
+    "compactions": 0,
+    "n_total": 11
+   },
+   "quiz": {
+    "requests": 1,
+    "input": 2,
+    "cache_write": 94995,
+    "cache_read": 0,
+    "output": 209,
+    "ite": 191037,
+    "final_ctx": 94997,
+    "compactions": 0,
+    "n_total": 12
+   },
+   "retention": "6/6",
+   "answer": "1. Required CLI name: `ledgr`\n2. Money amounts: must be stored as integer cents, never floats\n3. Storage engine: DuckDB now, switched from SQLite (for analytics query support)\n4. Money/rounding test: `test_split.py::test_split_bill_rounding` \u2014 `split_bill(100, 3)` returns `[33, 33, 33]` (sums to 99), losing 1 cent instead of distributing the remainder so the total sums to 100\n5. Current task: implement CSV export (`ledgr export --csv`) \u2014 outline only, no code written yet\n6. Network access: must run fully offline, no network access",
+   "path": "scratch/live2/switch-M-baseline",
+   "quiz_prefix_tokens": 94997
+  },
+  "ctxlc": {
+   "work": {
+    "requests": 10,
+    "input": 90,
+    "cache_write": 40894,
+    "cache_read": 456887,
+    "output": 2638,
+    "ite": 140757,
+    "final_ctx": 62730,
+    "compactions": 0,
+    "n_total": 10
+   },
+   "quiz": {
+    "requests": 1,
+    "input": 2,
+    "cache_write": 48126,
+    "cache_read": 0,
+    "output": 173,
+    "ite": 97119,
+    "final_ctx": 48128,
+    "compactions": 0,
+    "n_total": 1
+   },
+   "retention": "6/6",
+   "answer": "1) ledgr\n2) Integer cents, never floats\n3) Currently DuckDB; previously SQLite\n4) tests/test_split.py::test_split_bill_rounding \u2014 split_bill(100, 3) returns [33, 33, 33], summing to 99 instead of 100 (1 cent lost to rounding, needs remainder distribution)\n5) Implement CSV export (`ledgr export --csv`) \u2014 no code yet, and the failing tests aren't to be fixed yet\n6) Must run fully offline, no network access",
+   "path": "scratch/live2/switch-M-ctxlc",
+   "quiz_prefix_tokens": 48128
+  },
+  "_secs": 167
+ },
+ "compact": {
+  "baseline": {
+   "usage": {
+    "requests": 18,
+    "input": 156,
+    "cache_write": 73840,
+    "cache_read": 870429,
+    "output": 4400,
+    "ite": 256879,
+    "final_ctx": 62178,
+    "compactions": 1,
+    "n_total": 18
+   },
+   "retention": "6/6",
+   "answer": "1) CLI must be named `ledgr`\n2) Amounts stored as integer cents, never floats\n3) Storage engine: DuckDB now (switched from SQLite for analytics queries)\n4) Failing test: `test_split_bill_rounding` \u2014 split_bill(100, 3) returns [33, 33, 33] but should sum to exactly 100 cents (currently loses 1 cent)\n5) Current task: Implement CSV export via `ledgr export --csv`\n6) Network constraint: Must run fully offline with no network access",
+   "path": "scratch/live2/compact-baseline"
+  },
+  "ctxlc": {
+   "usage": {
+    "requests": 17,
+    "input": 148,
+    "cache_write": 73990,
+    "cache_read": 805670,
+    "output": 5834,
+    "ite": 257865,
+    "final_ctx": 59459,
+    "compactions": 1,
+    "n_total": 17
+   },
+   "retention": "6/6",
+   "answer": "1) **CLI name**: `ledgr`\n2) **Money storage**: Integer cents (never floats)\n3) **Storage engine**: DuckDB (current); SQLite (previous)\n4) **Money/rounding test**: `tests/test_split.py::test_split_bill_rounding` \u2014 `split_bill(100, 3)` returns `[33, 33, 33]` (sum=99), losing 1 cent\n5) **Current task**: Implement CSV export (`ledgr export --csv`)\n6) **Network constraint**: Must run fully offline, no network access",
+   "path": "scratch/live2/compact-ctxlc"
+  },
+  "_secs": 325
+ }
+}

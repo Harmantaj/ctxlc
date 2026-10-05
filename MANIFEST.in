@@ -1,0 +1,3 @@
+include LICENSE CHANGELOG.md
+recursive-include tests *.py *.jsonl
+prune tests/__pycache__

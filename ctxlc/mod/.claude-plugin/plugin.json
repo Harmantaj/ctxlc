@@ -1,0 +1,1 @@
+{ "name": "ctxlc-bar", "version": "0.1.0", "description": "ctxlc in the app: a status line, a hint above the prompt when a fresh start is cheaper, and a /ctxlc pane with past conversations", "types": "./types/index.d.ts" }

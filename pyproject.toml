@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctxlc"
+dynamic = ["version"]
+description = "Context lifecycle manager for Claude Code: compacts bulky tool output and restores durable project state across clears, compactions and model switches"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Harmantaj"}]
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["claude", "claude-code", "hooks", "context", "tokens", "prompt-cache"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development",
+]
+
+[project.urls]
+Homepage = "https://github.com/Harmantaj/ctxlc"
+Issues = "https://github.com/Harmantaj/ctxlc/issues"
+
+[project.scripts]
+ctx = "ctxlc.cli:main"
+
+[tool.setuptools]
+packages = ["ctxlc"]
+
+[tool.setuptools.package-data]
+ctxlc = ["skill_template.md", "mod/.claude-plugin/plugin.json", "mod/hooks/hooks.json", "mod/hooks/register.tsx", "mod/types/index.d.ts"]
+
+[tool.setuptools.dynamic]
+version = {attr = "ctxlc.__version__"}
