@@ -43,8 +43,12 @@ class Base(unittest.TestCase):
         self.store = Store(self.proj)
         self.cfg = config.load(self.store.dir)
         self.transcript = os.path.join(self.proj, "t.jsonl")
+        # Each run_hook call is a separate event unless a test checks duplicate copies (TestDuplicateCopies).
+        self._first_copy = hooks.first_copy
+        hooks.first_copy = lambda store, raw: True
 
     def tearDown(self):
+        hooks.first_copy = self._first_copy
         os.environ.pop("CTXLC_PROJECT", None)
         self.tmp.cleanup()
 
@@ -806,9 +810,42 @@ class TestHooks(Base):
 
     def test_idle_guard_quiet_when_warm_or_small(self):
         self.write(rec_asst([{"type": "text", "text": "done"}], time.time() - 60, ctx=250000))
-        self.assertIsNone(self.run_hook(self.base("UserPromptSubmit", prompt="go")))
+        self.assertNotIn("decision", self.run_hook(self.base("UserPromptSubmit", prompt="go")))  # size notice only
         self.write(rec_asst([{"type": "text", "text": "done"}], time.time() - 9 * 3600, ctx=20000))
         self.assertIsNone(self.run_hook(self.base("UserPromptSubmit", prompt="go")))
+
+    def test_idle_guard_stops_holding_after_user_keeps_sending(self):
+        prompt = lambda: self.run_hook(self.base("UserPromptSubmit", prompt="go"))
+        for i in range(2):  # warned, then sent anyway: twice
+            self.write(rec_asst([{"type": "text", "text": "done"}], time.time() - 5 * 3600, ctx=200000))
+            self.assertEqual(prompt()["decision"], "block")
+            self.assertIsNone(prompt())
+            os.remove(self.store.epoch_path("idleguard__s1"))
+        out = prompt()
+        self.assertNotIn("decision", out)
+        self.assertIn("no longer holds", out["systemMessage"])
+        with open(os.path.join(self.store.dir, "config.json"), "w") as f:
+            json.dump({"idle_guard": "ask"}, f)
+        self.assertEqual(prompt()["decision"], "block")
+
+    def test_context_nudge_once_per_band_and_again_after_compaction(self):
+        prompt = lambda: self.run_hook(self.base("UserPromptSubmit", prompt="go"))
+        self.write(rec_asst([{"type": "text", "text": "a"}], time.time() - 60, ctx=100000))
+        self.assertIsNone(prompt())
+        self.write(rec_asst([{"type": "text", "text": "b"}], time.time() - 60, ctx=160000))
+        self.assertIn("~160k tokens", prompt()["systemMessage"])
+        self.assertIsNone(prompt())
+        self.write(rec_asst([{"type": "text", "text": "c"}], time.time() - 60, ctx=260000))
+        self.assertIn("~260k", prompt()["systemMessage"])
+        self.write(rec_asst([{"type": "text", "text": "d"}], time.time() - 60, ctx=40000))  # compacted
+        self.assertIsNone(prompt())
+        self.write(rec_asst([{"type": "text", "text": "e"}], time.time() - 60, ctx=155000))
+        self.assertIn("~155k", prompt()["systemMessage"])
+        with open(os.path.join(self.store.dir, "config.json"), "w") as f:
+            json.dump({"context_nudge_tokens": []}, f)
+        self.write(rec_asst([{"type": "text", "text": "f"}], time.time() - 60, ctx=500000))
+        self.assertIsNone(prompt())
+
 
     def test_model_switch_guard(self):
         p = self.base("PreModelSwitch", from_model="claude-fable-5-1", to_model="claude-opus-5-5", context_tokens=300000,
@@ -981,6 +1018,41 @@ class TestHistory(Base):
         self.assertIn("build the &lt;parser&gt;", page)
         self.assertIn("Bash: ls -la</div>", page)  # one line per tool call
         self.assertNotIn("<parser>", page)
+
+
+class TestDuplicateCopies(Base):
+    """Two registrations of ctxlc's hooks get the same input for one event; only one may act."""
+
+    def setUp(self):
+        super().setUp()
+        hooks.first_copy = self._first_copy
+
+    def base(self, event, **kw):
+        return dict(session_id="s1", transcript_path=self.transcript, cwd=self.proj, hook_event_name=event, **kw)
+
+    def test_second_copy_of_an_event_does_nothing(self):
+        self.write(rec_user("Build the billing service.", time.time() - 50))
+        start = self.base("SessionStart", source="startup")
+        self.assertIsNotNone(self.run_hook(start))
+        self.assertIsNone(self.run_hook(start))
+        injects = [m for m in self.store.iter_jsonl(self.store.metrics_path) if m["event"] == "inject"]
+        self.assertEqual(len(injects), 1)
+        out = {"stdout": "\n".join(f"line {i} ok" for i in range(3000)), "stderr": ""}
+        tool = self.base("PostToolUse", tool_name="Bash", tool_input={"command": "make"}, tool_response=out, tool_use_id="t1")
+        first = self.run_hook(tool)["hookSpecificOutput"]["updatedToolOutput"]["stdout"]
+        self.assertNotIn("Output identical", first)  # the extract itself, not a pointer to a repeat
+        self.assertIsNone(self.run_hook(tool))
+
+    def test_same_input_is_a_new_event_once_the_conversation_grew_or_later(self):
+        self.write(rec_asst([{"type": "text", "text": "done"}], time.time() - 5 * 3600, ctx=250000))
+        p = self.base("UserPromptSubmit", prompt="go")
+        self.assertEqual(self.run_hook(p)["decision"], "block")
+        self.assertIsNone(self.run_hook(p))  # the duplicate copy: no second warning
+        marker = os.path.join(self.store.runs, os.listdir(self.store.runs)[0])
+        os.utime(marker, (time.time() - 60, time.time() - 60))
+        self.assertIsNone(self.run_hook(p))  # a minute later: the resend, let through by the guard itself
+        self.write(rec_user("go", time.time()))
+        self.assertTrue(hooks.first_copy(self.store, json.dumps(p)))
 
 
 if __name__ == "__main__":

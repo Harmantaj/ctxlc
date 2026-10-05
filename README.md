@@ -224,7 +224,10 @@ PreToolUse     PostToolUse        Stop/PreCompact      SessionStart     PreModel
 L1 slows growth; auto-compaction (optionally earlier with `--window`) caps per-request reads; after compaction `SessionStart(compact)`
 re-injects the digest so exact requirements/decisions survive the lossy summary. When you come back after the
 cache expired, the first prompt is held once with the cost (e.g. "idle 15.2h … re-caches ~480k tokens"):
-`/clear` restores state from L2 for ~2k tokens, or resend to keep full history.
+`/clear` restores state from L2 for ~2k tokens, or resend to keep full history. If you sent anyway on 2 of the last
+3 warnings, later ones are shown without holding the message (`"idle_guard": "ask"` keeps holding it). While the
+cache is warm, a one-time notice at 150k, 250k and 400k tokens of context says what each message now re-reads and
+that `/compact` is cheapest at that moment (`"context_nudge_tokens": []` turns it off).
 
 ### Model switch
 `PreModelSwitch` asks before discarding a warm cache over 60k tokens and names the cheaper path
@@ -239,6 +242,7 @@ cache expired, the first prompt is held once with the cost (e.g. "idle 15.2h …
 | `ctx digest` · `ctx state [--all]` | what gets injected · every item incl. superseded |
 | `ctx search <terms>` · `ctx show <ref> [--grep RE] [--lines a:b]` | L3 retrieval (`hN`, `u:<uuid>`, `D3`, `a:<hash>`) |
 | `ctx report` | actual API usage per session (from transcripts) + ctxlc savings |
+| `ctx doctor` | where ctxlc's hooks are registered; flags duplicate registrations and old plugin copies (exit 1 on a problem) |
 | `ctx history` · `ctx history N --open` · `--md` · `--json` | past conversations of this project (kept after `/clear`), newest first · open one as a readable page · as Markdown · as JSON |
 | `ctx handoff "<text>"\|-` · `ctx status [--json]` · `ctx panel [--usage JSON\|-]` | save a handoff for the next context · summary · HTML for the `/ctx` panel |
 | `/ctx` (skill in `~/.claude/skills/ctx`) | in-app panel; buttons: smart reset, prepare model switch, save handoff, digest, search, note, resolve |
@@ -356,7 +360,9 @@ What other people run into, and how it compares (sources: GitHub issues, blogs, 
 commands printed, including secrets. At each session startup, archived outputs and dedup epochs older than
 14 days are deleted and a `history.jsonl` over 20 MB is cut to its newest half; state items are never deleted.
 `ctx …` control prompts (panel buttons) are kept out of "recent messages" and requirement extraction, and
-bypass the idle guard. All thresholds are in `ctxlc/config.py` and can be overridden per project in
+bypass the idle guard. If ctxlc's hooks are registered twice (settings plus an old plugin copy, user plus project
+settings), the first copy to receive an event handles it and the other does nothing; `ctx doctor` shows where they
+are registered. All thresholds are in `ctxlc/config.py` and can be overridden per project in
 `.claude/context/config.json`.
 
 ## Limitations

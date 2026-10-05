@@ -77,7 +77,8 @@ There is also a `ctx` chat skill (type `ctx panel`, `ctx reset`, `ctx search …
 | Situation | What to do | What ctxlc does |
 | --- | --- | --- |
 | Coming back after hours or days | Start a **new session** in the same folder (or click Start fresh) | The new session starts from the ~2k-token digest instead of re-reading the whole old conversation. The old chat stays in your session list, readable any time. |
-| You keep typing in the old chat after a break | Nothing; read the warning | Your first message is held once with the cost (for example "idle 15.2h, re-caches ~480k tokens"). Send it again to continue anyway. |
+| You keep typing in the old chat after a break | Nothing; read the warning | Your first message is held once with the cost (for example "idle 15.2h, re-caches ~480k tokens"). Send it again to continue anyway. If you usually send anyway, ctxlc stops holding the message and only shows the note. |
+| A conversation keeps growing | Nothing; `/compact` when the notice appears | At 150k, 250k and 400k tokens, a one-time note says what every message now re-reads and that `/compact` is cheapest right then, while the cache is warm. |
 | Switching models mid-project | Start fresh, then pick the new model | Before a switch on a large warm conversation, ctxlc asks first and names the cheaper path. The new model starts from the digest, not a full re-send. |
 | One session running for hours or days | Nothing | Output trimming slows growth; when compaction happens (automatic or `/compact`), the exact rules are re-injected afterwards. |
 | Mid-task and the context is nearly full | Click Compact instead, or `/compact` | Compaction keeps your in-progress reasoning; ctxlc makes sure the rules survive it. |

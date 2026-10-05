@@ -5,6 +5,7 @@ logged to .claude/context/errors.log and the hook exits 0 with no output, which
 Claude Code treats as "no change".
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -210,14 +211,36 @@ def on_post_model_switch(store, cfg, d):
 
 
 def on_user_prompt_submit(store, cfg, d):
-    if cfg["idle_guard"] == "off" or ingest.CONTROL.match((d.get("prompt") or "").strip()):
+    if ingest.CONTROL.match((d.get("prompt") or "").strip()):
         return
     info = last_turn_info(d.get("transcript_path", ""))
     if not info or not info["ts"]:
         return
     idle = time.time() - info["ts"]
-    if idle <= info["ttl"] or info["ctx"] < cfg["idle_guard_min_tokens"]:
-        return
+    if idle > info["ttl"]:
+        if cfg["idle_guard"] != "off" and info["ctx"] >= cfg["idle_guard_min_tokens"]:
+            idle_guard(store, cfg, d, info, idle)
+    else:
+        context_nudge(store, cfg, d, info)
+
+
+def _guard_log(store, update=None):
+    """Outcomes of recent idle warnings in this project: "warned" (held) or "sent" (sent again anyway)."""
+    path = os.path.join(store.dir, "guard.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            log = json.load(f)
+    except (OSError, ValueError):
+        log = []
+    if update:
+        log = update(log)[-10:]
+        store.ensure()
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(log, f)
+    return log
+
+
+def idle_guard(store, cfg, d, info, idle):
     marker = store.epoch_path("idleguard__" + d.get("session_id", ""))
     try:
         shown = os.path.getmtime(marker)
@@ -226,20 +249,56 @@ def on_user_prompt_submit(store, cfg, d):
     if shown and time.time() - shown < cfg["guard_override_window_s"]:
         # Keep the marker: a second copy of this hook (e.g. a stale plugin) runs for the same submit and must pass too.
         store.metric("idle_guard_override", session=d.get("session_id"), idle_s=int(idle), ctx=info["ctx"])
+        _guard_log(store, lambda log: log[:-1] + ["sent"] if log and log[-1] == "warned" else log + ["sent"])
+        return
+    hours = idle / 3600
+    cost = (f"this conversation was idle {hours:.1f}h, so its prompt cache ({info['ttl'] // 60} min TTL) has expired. "
+            f"Sending now re-caches the full ~{info['ctx'] // 1000}k-token context before any work starts.")
+    fresh = ("start a new session in this folder and send your message there. Project state (requirements, "
+             "decisions, current task, files, recent messages) is restored automatically, and this conversation stays "
+             "in your session list to read (or `ctx history`). /clear here works the same but hides this chat.")
+    # "auto": after the user sent anyway on 2 of the last 3 warnings, stop holding the prompt and just say it.
+    if cfg["idle_guard"] == "auto" and _guard_log(store)[-3:].count("sent") >= 2:
+        store.metric("idle_guard_notice", session=d.get("session_id"), idle_s=int(idle), ctx=info["ctx"])
+        emit({"systemMessage": f"ctxlc: sent. Note: {cost} Next time it is cheaper to {fresh} (You sent anyway on "
+                               "recent warnings, so ctxlc no longer holds the message; set \"idle_guard\": \"ask\" in "
+                               ".claude/context/config.json to be asked again.)"})
         return
     store.ensure()
     open(marker, "w", encoding="utf-8").close()
     store.metric("idle_guard_block", session=d.get("session_id"), idle_s=int(idle), ctx=info["ctx"])
-    hours = idle / 3600
-    reason = (
-        f"ctxlc: this conversation was idle {hours:.1f}h, so its prompt cache ({info['ttl'] // 60} min TTL) has expired. "
-        f"Sending now re-caches the full ~{info['ctx'] // 1000}k-token context before any work starts. "
-        "Cheaper: start a new session in this folder and send your message there. Project state (requirements, "
-        "decisions, current task, files, recent messages) is restored automatically, and this conversation stays "
-        "in your session list to read (or `ctx history`). /clear here works the same but hides this chat. "
-        "To keep the full history anyway, just send the same message again."
-    )
-    emit({"decision": "block", "reason": reason})
+    _guard_log(store, lambda log: log + ["warned"])
+    emit({"decision": "block", "reason": f"ctxlc: {cost} Cheaper: {fresh} To keep the full history anyway, just send "
+                                         "the same message again."})
+
+
+def context_nudge(store, cfg, d, info):
+    """Once per size band (150k, 250k, 400k by default), tell the user what a large conversation costs per message.
+
+    Non-blocking. Shown only while the cache is warm, which is exactly when /compact is cheapest."""
+    passed = [b for b in sorted(cfg["context_nudge_tokens"] or []) if info["ctx"] >= b]
+    path = store.epoch_path("nudge__" + d.get("session_id", ""))
+    try:
+        with open(path, encoding="utf-8") as f:
+            shown = json.load(f).get("band", 0)
+    except (OSError, ValueError):
+        shown = 0
+    if passed and passed[-1] <= shown:
+        return
+    if shown and (not passed or info["ctx"] < shown):  # compacted below the band shown: start over
+        os.remove(path)
+        shown = 0
+    if not passed:
+        return
+    store.ensure()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"band": passed[-1]}, f)
+    k = info["ctx"] // 1000
+    store.metric("context_nudge", session=d.get("session_id"), ctx=info["ctx"], band=passed[-1])
+    emit({"systemMessage": f"ctxlc: this conversation is ~{k}k tokens, and every message re-reads all of it (about "
+                           f"{k / 10:.0f}k tokens' worth at the cache-read rate, before any new work). The cheapest "
+                           "moment to shrink it is now, while the cache is warm: /compact keeps this thread, or a new "
+                           "session in this folder restores the project state for ~2k tokens."})
 
 
 HANDLERS = {
@@ -275,6 +334,36 @@ def installed_hooks_present(cwd):
     return False
 
 
+def first_copy(store, raw, window_s=5):
+    """False when another copy of ctxlc's hooks already took this exact event.
+
+    Two registrations (installed hooks plus a stale plugin copy, user plus project settings, ...) both receive the
+    same input for the same event. Running twice double-injects state, makes the second PostToolUse copy call the
+    output a repeat of itself, and made the idle warning block every resend. Whichever copy claims the event first
+    handles it; the same input with a longer transcript, or more than window_s later, is a new event."""
+    try:  # a later event with the same input comes after the conversation grew; a duplicate copy sees the same size
+        raw += f"\0{os.path.getsize(json.loads(raw).get('transcript_path') or '')}"
+    except (OSError, ValueError, AttributeError):
+        pass
+    os.makedirs(store.runs, exist_ok=True)
+    path = os.path.join(store.runs, hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32])
+    for _ in range(2):
+        try:
+            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            return True
+        except FileExistsError:
+            pass
+        try:
+            if time.time() - os.path.getmtime(path) < window_s:
+                return False
+            stale = f"{path}.{os.getpid()}"
+            os.rename(path, stale)  # only one copy wins the rename of an old marker
+            os.remove(stale)
+        except OSError:
+            return False
+    return False
+
+
 def main(stdin=None):
     raw = (stdin or sys.stdin).read()
     store = None
@@ -286,6 +375,8 @@ def main(stdin=None):
         if os.environ.get("CTXLC_PLUGIN") and installed_hooks_present(d.get("cwd")):
             return 0  # the plugin copy beside a `ctx install`: those hooks already do this
         store = Store(ingest_project(d))
+        if not first_copy(store, raw):
+            return 0
         handler(store, config.load(store.dir), d)
     except Exception:
         try:

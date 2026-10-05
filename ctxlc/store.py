@@ -191,6 +191,8 @@ class Store:
         self.metrics_path = os.path.join(self.dir, "metrics.jsonl")
         self.artifacts = os.path.join(self.dir, "artifacts")
         self.epochs = os.path.join(self.dir, "epochs")
+        # One marker per hook event handled, so a second copy of ctxlc's hooks can tell it is a duplicate.
+        self.runs = os.path.join(self.dir, "runs")
 
     def ensure(self):
         for d in (self.dir, self.artifacts, self.epochs):
@@ -318,6 +320,18 @@ class Store:
                         removed += 1
                 except OSError:
                     pass
+        try:
+            names = os.listdir(self.runs)
+        except OSError:
+            names = []
+        for n in names:  # only needed for seconds; keep an hour
+            p = os.path.join(self.runs, n)
+            try:
+                if os.path.getmtime(p) < time.time() - 3600:
+                    os.remove(p)
+                    removed += 1
+            except OSError:
+                pass
         dropped = 0
         try:
             size = os.path.getsize(self.history_path)

@@ -54,7 +54,8 @@ mkdir -p "$PROJ" "$WORK/home"
   # The Cowork plugin's own hook command (it also loads in local sessions, on any OS).
   "$PY" -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$(native "$WORK/plugin.zip")" "$(native "$WORK/plugin")"
   PLUGIN_CMD="$("$PY" -c "import json, sys; print(json.load(open(sys.argv[1]))['hooks']['SessionStart'][0]['hooks'][0]['command'])" "$(native "$WORK/plugin/hooks/hooks.json")")"
-  echo "$HOOK" | CLAUDE_PLUGIN_ROOT="$(native "$WORK/plugin")" bash -c "$PLUGIN_CMD" | grep -q "INV-2026-"
+  # A different session: the same input again within seconds would be handled as a duplicate copy of the first run.
+  echo "${HOOK/\"s1\"/\"s2\"}" | CLAUDE_PLUGIN_ROOT="$(native "$WORK/plugin")" bash -c "$PLUGIN_CMD" | grep -q "INV-2026-"
 )
 echo "install, hook run through bash, restore, uninstall and the plugin's hook command work"
 

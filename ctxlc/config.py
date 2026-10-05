@@ -75,8 +75,12 @@ DEFAULTS = {
     "idle_guard_min_tokens": 60000,
     # A second submit within this many seconds of the warning goes through.
     "guard_override_window_s": 900,
-    # "ask" = warn once and let the next submit through; "off" = never warn.
-    "idle_guard": "ask",
+    # "auto" = like "ask", but once the user sent anyway on 2 of the last 3 warnings, say it without holding the
+    # message; "ask" = always hold the first submit and let the next one through; "off" = never warn.
+    "idle_guard": "auto",
+    # Non-blocking notice, once per session per size, when a warm conversation grows past these context sizes.
+    # [] turns it off.
+    "context_nudge_tokens": [150000, 250000, 400000],
     "switch_guard": "ask",
     # --- Cowork cloud tasks -------------------------------------------------
     # Where state is kept between tasks, on the user's computer: "auto" = in whichever folder the task works in

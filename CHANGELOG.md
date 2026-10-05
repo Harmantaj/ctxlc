@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.6 — 2026-10-05
+
+- Duplicate hook copies are harmless: when ctxlc's hooks are registered more than once (installed hooks plus an old
+  plugin copy, user plus project settings), the first copy to receive an event handles it and the others do nothing.
+  Before, each copy injected state, and the second PostToolUse copy could replace an output with a pointer to itself.
+- `ctx doctor`: shows where ctxlc's hooks are registered and flags duplicate registrations and plugin copies older
+  than 0.1.3 that run beside the installed hooks.
+- Size notice: while the cache is warm, a one-time non-blocking note at 150k, 250k and 400k tokens of context says
+  what every message re-reads and that `/compact` is cheapest then (`context_nudge_tokens`, `[]` = off).
+- Idle warning adapts (`idle_guard: "auto"`, the new default): after you sent anyway on 2 of the last 3 warnings,
+  it shows the cost without holding the message. `"ask"` keeps the old behaviour.
+
 ## 0.1.5 — 2026-10-05
 
 - Idle warning no longer blocks every resend when ctxlc's hook runs twice for one message (for example an older

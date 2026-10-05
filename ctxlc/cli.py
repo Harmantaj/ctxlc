@@ -335,6 +335,66 @@ def cmd_uninstall(a, store):
     print("project state in .claude/context/ is kept; delete it yourself if you no longer need it")
 
 
+PLUGIN_HOOK = re.compile(r"-m ctxlc hook$")
+
+
+def doctor(project, home=None):
+    """Where ctxlc's hooks are registered, and problems with that: (lines, problem count). Reads files only."""
+    from . import __version__
+    home = home or os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    lines, problems, where = [f"ctxlc {__version__} (this copy: {CTX_PATH})"], 0, {}
+    for path in (os.path.join(home, "settings.json"), os.path.join(home, "settings.local.json"),
+                 os.path.join(project, ".claude", "settings.json"), os.path.join(project, ".claude", "settings.local.json")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                cfg_hooks = json.load(f).get("hooks", {})
+        except (OSError, ValueError, AttributeError):
+            continue
+        events = sorted(ev for ev, gs in cfg_hooks.items() if any(_is_ours(g) for g in gs if isinstance(g, dict)))
+        if events:
+            lines.append(f"hooks in {path}: {', '.join(events)}")
+            for ev in events:
+                where.setdefault(ev, []).append(path)
+    for ev, paths in sorted(where.items()):
+        if len(paths) > 1:
+            problems += 1
+            lines.append(f"PROBLEM: {ev} is registered in {len(paths)} settings files; each event runs ctxlc more than "
+                         "once (handled, but remove all but one: `ctx uninstall` then `ctx install` once)")
+    plugins = os.path.join(home, "plugins")
+    for root, dirs, files in os.walk(plugins):
+        dirs[:] = [x for x in dirs if x not in (".trash", "cache", "node_modules")]
+        if "plugin.json" not in files or os.path.basename(root) != ".claude-plugin":
+            continue
+        try:
+            with open(os.path.join(root, "plugin.json"), encoding="utf-8") as f:
+                meta = json.load(f)
+            with open(os.path.join(os.path.dirname(root), "hooks", "hooks.json"), encoding="utf-8") as f:
+                cmds = [h.get("command", "") for gs in json.load(f).get("hooks", {}).values() for g in gs for h in g.get("hooks", [])]
+        except (OSError, ValueError, AttributeError):
+            continue
+        if meta.get("name") != "ctxlc" or not any(PLUGIN_HOOK.search(c) for c in cmds):
+            continue
+        stands_down = all("CTXLC_PLUGIN" in c for c in cmds if PLUGIN_HOOK.search(c))
+        lines.append(f"plugin {meta.get('version')} at {os.path.dirname(root)}"
+                     + ("" if stands_down else " (no stand-down: runs beside installed hooks)"))
+        if where and not stands_down:
+            problems += 1
+            lines.append("PROBLEM: that plugin copy predates 0.1.3 and runs every hook a second time beside the installed "
+                         "hooks (handled since 0.1.6). Upload the current ctxlc-plugin.zip under Customize → Plugins; "
+                         "the app replaces this copy at its next sync")
+    if not where and len(lines) == 1:
+        problems += 1
+        lines.append("PROBLEM: no ctxlc hooks found in settings or plugins: run `ctx install`")
+    lines.append("no problems found" if not problems else f"{problems} problem(s)")
+    return lines, problems
+
+
+def cmd_doctor(a, store):
+    lines, problems = doctor(store.project)
+    print("\n".join(lines))
+    return 1 if problems else 0
+
+
 def cmd_history(a, store):
     if not a.ref:
         convs = history.conversations(store.project)
@@ -442,6 +502,7 @@ def main(argv=None):
     si.add_argument("--folder", help="the folder on the user's computer this task syncs with (default sync mode)")
     si.add_argument("--off", action="store_true", help="this task has no folder: do not sync it")
     si.set_defaults(fn=cmd_sync_import)
+    sub.add_parser("doctor", help="check where ctxlc's hooks are registered (duplicates, stale plugin copies)").set_defaults(fn=cmd_doctor)
     rp = sub.add_parser("report", help="token accounting")
     rp.add_argument("--json", action="store_true")
     rp.set_defaults(fn=cmd_report)
@@ -458,8 +519,7 @@ def main(argv=None):
         i.set_defaults(fn=fn)
     a = p.parse_args(argv)
     store = Store(os.path.abspath(a.project)) if getattr(a, "project", None) else Store()
-    a.fn(a, store)
-    return 0
+    return a.fn(a, store) or 0
 
 
 if __name__ == "__main__":
