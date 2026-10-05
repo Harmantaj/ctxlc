@@ -215,7 +215,7 @@ def _write_settings(path, s):
     if os.path.exists(path):
         shutil.copy2(path, path + ".ctxlc.bak")
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:  # LF on Windows too: don't churn the user's file
         json.dump(s, f, indent=2)
         f.write("\n")
     os.replace(tmp, path)

@@ -3,7 +3,7 @@
 # wheel installed into a fresh venv with a throwaway HOME, sdist tests run from the unpacked tarball, and a
 # plugin zip with no sync folder baked in. Publishes nothing.
 set -Eeuo pipefail
-trap 'echo "release_check: failed at line $LINENO: $BASH_COMMAND" >&2; cat .claude/settings.local.json .claude/context/errors.log 2>/dev/null >&2 || true' ERR
+trap 'echo "release_check: failed at line $LINENO: $BASH_COMMAND" >&2; cat .claude/settings.local.json .claude/context/errors.log >&2 2>/dev/null || true' ERR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${PYTHON:-python3}"
 OUT="$ROOT/dist/release"
