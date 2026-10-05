@@ -14,6 +14,7 @@ env = dict(os.environ, CTXLC_PROJECT=proj)
 t = os.path.join(proj, "t.jsonl")
 shutil.copy(REAL_T, t)
 results = []
+sys.stdout.reconfigure(encoding="utf-8")  # Windows consoles default to a legacy code page
 
 
 def check(name, ok, detail=""):
@@ -22,14 +23,14 @@ def check(name, ok, detail=""):
 
 
 def cli(*args, stdin=None):
-    p = subprocess.run(CTX + list(args), input=stdin, capture_output=True, text=True, env=env, cwd=proj)
+    p = subprocess.run(CTX + list(args), input=stdin, capture_output=True, text=True, encoding="utf-8", env=env, cwd=proj)
     return p.returncode, p.stdout, p.stderr
 
 
 def hook(event, **kw):
     d = dict(session_id="e2e", transcript_path=t, cwd=proj, hook_event_name=event, **kw)
     t0 = time.time()
-    p = subprocess.run(CTX + ["hook"], input=json.dumps(d), capture_output=True, text=True, env=env, cwd=proj)
+    p = subprocess.run(CTX + ["hook"], input=json.dumps(d), capture_output=True, text=True, encoding="utf-8", env=env, cwd=proj)
     ms = (time.time() - t0) * 1000
     if event == "PreCompact":  # plain text: Claude Code appends it to the compaction instructions
         return p.returncode, p.stdout, ms, p.stderr
