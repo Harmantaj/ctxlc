@@ -506,11 +506,16 @@ class TestToolOutput(Base):
         self.assertIsNone(toolout.wrap_command({"command": "npm test", "run_in_background": True}))
         once = toolout.wrap_command({"command": "make"})
         self.assertIsNone(toolout.wrap_command(once))
+        import shutil
         import subprocess
-        out = subprocess.run(["bash", "-c", toolout.wrap_command({"command": "make -f /nonexistent 2>/dev/null"})["command"]], capture_output=True, text=True)
+        # Claude Code runs Bash tool commands in Git Bash on Windows; a bare "bash" there can be the WSL launcher.
+        bash = (os.path.join(os.path.dirname(os.path.dirname(shutil.which("git"))), "bin", "bash.exe")
+                if os.name == "nt" else "bash")
+        # A stand-in make keeps this independent of whether make is installed.
+        out = subprocess.run([bash, "-c", toolout.wrap_command({"command": "make() { return 2; }; make -f x"})["command"]], capture_output=True, text=True)
         self.assertEqual(out.returncode, 0)
         self.assertIn("[ctxlc] exit code 2", out.stdout)
-        ok = subprocess.run(["bash", "-c", toolout.wrap_command({"command": "make -v >/dev/null"})["command"]], capture_output=True, text=True)
+        ok = subprocess.run([bash, "-c", toolout.wrap_command({"command": "make() { return 0; }; make -v"})["command"]], capture_output=True, text=True)
         self.assertEqual((ok.returncode, ok.stdout), (0, ""))
 
     def test_diff_summary(self):
@@ -825,7 +830,8 @@ class TestHooks(Base):
 
     def test_store_is_private_and_gc(self):
         self.store.ensure()
-        self.assertEqual(os.stat(self.store.dir).st_mode & 0o777, 0o700)
+        if os.name != "nt":  # Windows has no POSIX modes
+            self.assertEqual(os.stat(self.store.dir).st_mode & 0o777, 0o700)
         _, old = toolout.archive(self.store, "old output", "$ x")
         _, new = toolout.archive(self.store, "new output", "$ y")
         os.utime(old, (time.time() - 30 * 86400,) * 2)

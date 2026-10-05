@@ -59,7 +59,7 @@ STOPWORDS = set(
 
 # A Cowork session runs Claude Code on the host with cwd <session>/outputs; that folder is shown to the user and
 # mounted into the VM, so the store goes in the session directory beside it.
-COWORK_OUTPUTS = re.compile(r"(.*/local-agent-mode-sessions/.+/local_[^/]+)/outputs/?$")
+COWORK_OUTPUTS = re.compile(r"(.*[/\\]local-agent-mode-sessions[/\\].+[/\\]local_[^/\\]+)[/\\]outputs[/\\]?$")
 
 
 def cowork_session_dir(path):

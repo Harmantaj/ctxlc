@@ -16,7 +16,8 @@ import os
 
 from .store import _failure_ids, add_item
 
-SYNC_FILE = os.path.join(".claude", "ctxlc-cowork.json")
+# Run by bash on the user's computer, where "/" works on every OS (Git Bash included).
+SYNC_FILE = ".claude/ctxlc-cowork.json"
 EOF_MARK = "CTXLC_EOF"
 
 
@@ -40,7 +41,7 @@ def needs_pull(cfg, st):
 
 
 def remote_path(base):
-    return os.path.join(base, SYNC_FILE)
+    return base.rstrip("/\\") + "/" + SYNC_FILE
 
 
 def export(st):
