@@ -557,6 +557,16 @@ class TestHooks(Base):
     def base(self, event, **kw):
         return dict(session_id="s1", transcript_path=self.transcript, cwd=self.proj, hook_event_name=event, **kw)
 
+    def test_install_recognizes_its_hooks_on_every_platform(self):
+        from ctxlc import cli
+        ours = ['python3 "/x/bin/ctx" hook', '"/home/u/.local/bin/ctx" hook', '"C:/Users/u/.local/bin/ctx.exe" hook',
+                '"C:/Users/u/venv/Scripts/ctx.exe" hook', '"C:/Py/python.exe" "D:/src/ctxlc/bin/ctx" hook']
+        for cmd in ours:
+            self.assertTrue(cli._is_ours({"hooks": [{"command": cmd}]}), cmd)
+        for cmd in ("~/bin/other-hook", "npx ctxkit hook", "echo hook"):
+            self.assertFalse(cli._is_ours({"hooks": [{"command": cmd}]}), cmd)
+        self.assertTrue(cli._is_ours({"hooks": [{"command": cli.HOOK_CMD}]}))
+
     def test_plugin_copy_stands_down_beside_installed_hooks(self):
         # claude.ai plugins load into local sessions too; with `ctx install` hooks there, state was injected twice.
         cfg = tempfile.TemporaryDirectory()

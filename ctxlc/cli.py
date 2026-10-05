@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -192,8 +193,12 @@ def settings_path(a):
     return os.path.join(os.path.abspath(a.project or os.getcwd()), ".claude", "settings.local.json")
 
 
+# ".../bin/ctx" hook (checkout, pipx on macOS/Linux) or ".../Scripts/ctx.exe" hook (Windows).
+OUR_HOOK = re.compile(r'[/\\]ctx(?:\.exe)?"? hook$')
+
+
 def _is_ours(g):
-    return any("bin/ctx" in h.get("command", "") and " hook" in h.get("command", "") for h in g.get("hooks", []))
+    return any(OUR_HOOK.search(h.get("command", "")) for h in g.get("hooks", []))
 
 
 def _read_settings(path):
