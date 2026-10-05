@@ -3,6 +3,7 @@
 # wheel installed into a fresh venv with a throwaway HOME, sdist tests run from the unpacked tarball, and a
 # plugin zip with no sync folder baked in. Publishes nothing.
 set -euo pipefail
+trap 'echo "release_check: failed at line $LINENO: $BASH_COMMAND" >&2' ERR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${PYTHON:-python3}"
 OUT="$ROOT/dist/release"
@@ -38,7 +39,8 @@ mkdir -p "$PROJ" "$WORK/home"
   cd "$PROJ"
   "$CTX" install --project "$PROJ" >/dev/null
   CTX_IN_SETTINGS="$(native "$CTX")"
-  if [ "$BIN" = Scripts ]; then CTX_IN_SETTINGS="$CTX_IN_SETTINGS.exe"; fi
+  # Windows may spell the temp folder as an 8.3 short name (RUNNER~1) on one side only: compare the tail.
+  if [ "$BIN" = Scripts ]; then CTX_IN_SETTINGS="/v/Scripts/ctx.exe"; fi
   grep -qF "$CTX_IN_SETTINGS\\\" hook" .claude/settings.local.json
   "$CTX" note requirement "Invoice numbers use the prefix INV-2026-" >/dev/null
   HOOK="{\"hook_event_name\":\"SessionStart\",\"source\":\"clear\",\"session_id\":\"s1\",\"cwd\":\"$(native "$PROJ")\",\"transcript_path\":\"\"}"
