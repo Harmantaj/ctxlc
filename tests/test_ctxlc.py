@@ -509,8 +509,12 @@ class TestToolOutput(Base):
         import shutil
         import subprocess
         # Claude Code runs Bash tool commands in Git Bash on Windows; a bare "bash" there can be the WSL launcher.
-        bash = (os.path.join(os.path.dirname(os.path.dirname(shutil.which("git"))), "bin", "bash.exe")
-                if os.name == "nt" else "bash")
+        bash = "bash"
+        if os.name == "nt":  # git.exe sits in Git\cmd or Git\mingw64\bin; bash.exe in Git\bin
+            d = os.path.dirname(shutil.which("git"))
+            while not os.path.isfile(os.path.join(d, "bin", "bash.exe")) and d != os.path.dirname(d):
+                d = os.path.dirname(d)
+            bash = os.path.join(d, "bin", "bash.exe")
         # A stand-in make keeps this independent of whether make is installed.
         out = subprocess.run([bash, "-c", toolout.wrap_command({"command": "make() { return 2; }; make -f x"})["command"]], capture_output=True, text=True)
         self.assertEqual(out.returncode, 0)
