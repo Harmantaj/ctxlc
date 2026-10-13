@@ -1,7 +1,6 @@
 // ctxlc in the app. The hooks (`ctx install`) do the saving and restoring; this mod only makes it visible:
 // a quiet status line, a hint above the prompt when starting fresh is cheaper than continuing, and a /ctxlc
 // pane with the saved state and the project's past conversations (readable after /clear).
-import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Conversation, CtxStatus, View } from '../types'
@@ -12,12 +11,31 @@ const PANE = 'ctxlc'
 const COLD_MIN_TOKENS = 60_000
 const FULL_PERCENT = 80
 
-const status = atom({ plugin: 'ctxlc-bar', key: 'status' } as const, null)
-const context = atom({ plugin: 'ctxlc-bar', key: 'context' } as const, { tokens: null, percent: null })
-const bandHidden = atom({ plugin: 'ctxlc-bar', key: 'bandHidden' } as const, false)
-const conversations = atom({ plugin: 'ctxlc-bar', key: 'conversations' } as const, [])
-const view = atom({ plugin: 'ctxlc-bar', key: 'view' } as const, { kind: 'home' })
-const busy = atom({ plugin: 'ctxlc-bar', key: 'busy' } as const, null)
+// Plain module state: the module stays loaded for the session, so these survive between
+// hook calls on their own; `$.ui.invalidate` asks the mounted ui.render sites to redraw.
+let status: CtxStatus | null = null
+let contextUsage: { tokens: number | null; percent: number | null } = { tokens: null, percent: null }
+let bandHidden = false
+let conversations: Conversation[] = []
+let view: View = { kind: 'home' }
+let busy: string | null = null
+
+function setState($: EngineInterface, patch: Partial<{
+  status: CtxStatus | null
+  contextUsage: typeof contextUsage
+  bandHidden: boolean
+  conversations: Conversation[]
+  view: View
+  busy: string | null
+}>) {
+  if ('status' in patch) status = patch.status!
+  if ('contextUsage' in patch) contextUsage = patch.contextUsage!
+  if ('bandHidden' in patch) bandHidden = patch.bandHidden!
+  if ('conversations' in patch) conversations = patch.conversations!
+  if ('view' in patch) view = patch.view!
+  if ('busy' in patch) busy = patch.busy!
+  $.ui.invalidate('ui.render')
+}
 
 const k = (n: number | null | undefined) => (n == null ? '?' : n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`)
 
@@ -66,10 +84,9 @@ async function refresh($: EngineInterface) {
   try {
     // This session's own numbers: the project's latest session may be the old chat this one replaced.
     const s: CtxStatus = JSON.parse(await ctx($, ['status', '--json', '--session', await $.session.id()]))
-    await update($, status, () => s)
     const u = await $.session.usage()
     const c = { tokens: u.context.tokens ?? null, percent: u.context.percent ?? null }
-    await update($, context, () => c)
+    setState($, { status: s, contextUsage: c })
     const cache = s.idle_s == null ? 'new conversation' : s.cache_warm
       ? `cache warm${s.idle_s != null ? ` ${ago(Math.max(60, s.cache_ttl_s - s.idle_s))} left` : ''}`
       : 'cache cold'
@@ -85,26 +102,26 @@ async function loadConversations($: EngineInterface) {
   try {
     const list: Conversation[] = JSON.parse(await ctx($, ['history', '--json', '--n', '12']))
     const id = await $.session.id()
-    await update($, conversations, () => list.map(c => ({ ...c, current: c.id === id })))
+    setState($, { conversations: list.map(c => ({ ...c, current: c.id === id })) })
   } catch {
-    await update($, conversations, () => [])
+    setState($, { conversations: [] })
   }
 }
 
 // Cold cache: state is saved at every reply, so a fresh start needs no model call (a handoff written now
 // would re-read the whole cold context, the cost being avoided). Warm: let the model add a handoff first.
 async function startFresh($: EngineInterface, tone: 'cold' | 'full') {
-  await update($, busy, () => 'Saving state…')
+  setState($, { busy: 'Saving state…' })
   try {
     if (tone === 'cold') {
       await ctx($, ['ingest'])
-      await update($, bandHidden, () => true)
+      setState($, { bandHidden: true })
       await $.command.run({ command: 'clear' })
     } else {
       await $.prompt.submit({ text: 'ctx reset' })
     }
   } finally {
-    await update($, busy, () => null)
+    setState($, { busy: null })
   }
 }
 
@@ -119,22 +136,21 @@ export const register: Register = on => {
 
   on('session.end', async ($, e, next) => {
     // A /clear: the next conversation starts with the band back in place.
-    await update($, bandHidden, () => false)
-    await update($, view, () => ({ kind: 'home' }) as View)
+    setState($, { bandHidden: false, view: { kind: 'home' } })
 
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
-    await update($, bandHidden, () => false)
+    setState($, { bandHidden: false })
     void refresh($)
 
     return done
   })
 
   on('command.run', { command: 'ctxlc' }, async $ => {
-    await update($, view, () => ({ kind: 'home' }) as View)
+    setState($, { view: { kind: 'home' } })
     // Loaded before opening, so the pane never flashes an empty list (~0.3 s of local work).
     await Promise.all([refresh($), loadConversations($)])
     await $.ui.open({ id: PANE, title: 'Context' })
@@ -143,12 +159,10 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const s = await read($, status)
-    const c = await read($, context)
-    const a = advice(s, c.tokens, c.percent)
-    if (!a || e.props.hasSurvey || (await read($, bandHidden))) return next(e)
+    const a = advice(status, contextUsage.tokens, contextUsage.percent)
+    if (!a || e.props.hasSurvey || bandHidden) return next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
-    const working = await read($, busy)
+    const working = busy
 
     return (
       <Box flexDirection="column" gap={1}>
@@ -159,7 +173,7 @@ export const register: Register = on => {
           )}
           {a.tone === 'full' && <Button key="compact" label="Compact instead" onPress={() => void $.session.compact()} />}
           <Button key="pane" label="Past conversations" onPress={() => void $.command.run({ command: 'ctxlc' })} />
-          <Button key="hide" role="dismiss" label="Continue here" onPress={() => void update($, bandHidden, () => true)} />
+          <Button key="hide" role="dismiss" label="Continue here" onPress={() => setState($, { bandHidden: true })} />
         </Box>
       </Box>
     )
@@ -167,12 +181,12 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text, Markdown } = $.ui.resolve(e)
-    const v = await read($, view)
+    const v = view
     if (v.kind === 'conversation') {
       return (
         <Box flexDirection="column" gap={1}>
           <Box flexDirection="row" gap={2}>
-            <Button key="back" label="Back" onPress={() => void update($, view, () => ({ kind: 'home' }) as View)} />
+            <Button key="back" label="Back" onPress={() => setState($, { view: { kind: 'home' } })} />
             <Button key="web" label="Open as page" onPress={() => void ctx($, ['history', String(v.n), '--open'])} />
           </Box>
           <Text bold wrap="truncate-end">{v.title}</Text>
@@ -180,9 +194,9 @@ export const register: Register = on => {
         </Box>
       )
     }
-    const s = await read($, status)
-    const c = await read($, context)
-    const list = await read($, conversations)
+    const s = status
+    const c = contextUsage
+    const list = conversations
     const a = advice(s, c.tokens, c.percent)
     if (!s) return <Text dimColor>Loading…</Text>
     const cache = s.idle_s == null ? 'new' : s.cache_warm ? 'warm' : 'cold'
@@ -217,7 +231,7 @@ export const register: Register = on => {
             label={`${when(conv.end)}  ${conv.current ? '(this one) ' : ''}${conv.first.slice(0, 70)}`}
             onPress={async () => {
               const text = await ctx($, ['history', String(conv.n), '--md'])
-              await update($, view, () => ({ kind: 'conversation', n: conv.n, title: conv.first.slice(0, 80), text }) as View)
+              setState($, { view: { kind: 'conversation', n: conv.n, title: conv.first.slice(0, 80), text } })
             }}
           />
         ))}
